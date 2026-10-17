@@ -985,6 +985,63 @@ class TestCreate:
         assert await memory.get_mental_model(bank_id, mental_model_id, request_context=request_context) is None
         await memory.delete_bank(bank_id, request_context=request_context)
 
+    async def test_list_mental_models_exclude_knowledge_pages(self, api_client, memory: MemoryEngine, request_context):
+        """Mental models list can exclude knowledge page backing models (#5665)."""
+        bank_id = f"test-kb-mm-filter-{uuid.uuid4().hex[:8]}"
+        try:
+            # Create a standalone mental model
+            mm = await memory.create_mental_model(
+                bank_id=bank_id,
+                name="Standalone MM",
+                source_query="What is standalone?",
+                content="content",
+                request_context=request_context,
+            )
+            # Create a knowledge page (with backing mental model)
+            page = await memory.create_knowledge_page(
+                bank_id=bank_id,
+                name="KB Page",
+                source_query="What is page?",
+                content="page content",
+                request_context=request_context,
+            )
+
+            # 1. Engine call without filter
+            all_models = await memory.list_mental_models(bank_id, request_context=request_context)
+            assert all_models.total == 2
+            ids_to_page = {item["id"]: item.get("knowledge_page_id") for item in all_models.items}
+            assert ids_to_page[mm["id"]] is None
+            assert ids_to_page[page["mental_model_id"]] == page["id"]
+
+            # 2. Engine call with exclude_knowledge_pages=True
+            standalone = await memory.list_mental_models(
+                bank_id, exclude_knowledge_pages=True, request_context=request_context
+            )
+            assert standalone.total == 1
+            assert [item["id"] for item in standalone.items] == [mm["id"]]
+            assert standalone.items[0]["knowledge_page_id"] is None
+
+            # 3. HTTP API without query param
+            resp = await api_client.get(f"/v1/default/banks/{_enc(bank_id)}/mental-models")
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["total"] == 2
+            api_ids_to_page = {item["id"]: item.get("knowledge_page_id") for item in data["items"]}
+            assert api_ids_to_page[mm["id"]] is None
+            assert api_ids_to_page[page["mental_model_id"]] == page["id"]
+
+            # 4. HTTP API with exclude_knowledge_pages=true
+            resp = await api_client.get(
+                f"/v1/default/banks/{_enc(bank_id)}/mental-models",
+                params={"exclude_knowledge_pages": "true"},
+            )
+            assert resp.status_code == 200
+            data = resp.json()
+            assert data["total"] == 1
+            assert [item["id"] for item in data["items"]] == [mm["id"]]
+        finally:
+            await memory.delete_bank(bank_id, request_context=request_context)
+
 
 class TestExport:
     async def test_export_bundle_nested_index(self, api_client, kb_bank):

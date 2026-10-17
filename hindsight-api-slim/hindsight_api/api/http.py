@@ -3541,6 +3541,10 @@ class MentalModelResponse(BaseModel):
         default=None,
         description="Full reflect API response payload including based_on facts and observations",
     )
+    knowledge_page_id: str | None = Field(
+        default=None,
+        description="ID of the knowledge page (`kp-...`) this mental model backs, or null if standalone.",
+    )
     is_stale: bool | None = Field(
         default=None,
         description=(
@@ -7048,6 +7052,10 @@ def _register_routes(app: FastAPI):
         bank_id: str,
         tags_filter: list[str] | None = Query(None, alias="tags", description="Filter by tags"),
         tags_match: Literal["any", "all", "exact"] = Query("any", description="How to match tags"),
+        exclude_knowledge_pages: bool = Query(
+            default=False,
+            description="When true, exclude mental models that back knowledge pages.",
+        ),
         detail: Literal["metadata", "content", "full"] = Query(
             "metadata",
             description=(
@@ -7079,6 +7087,7 @@ def _register_routes(app: FastAPI):
                 bank_id=bank_id,
                 tags=tags_filter,
                 tags_match=tags_match,
+                exclude_knowledge_pages=exclude_knowledge_pages,
                 detail=detail,
                 limit=limit,
                 offset=offset,

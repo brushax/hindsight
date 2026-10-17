@@ -1099,8 +1099,11 @@ export function BankStatsView() {
         client.getBankStats(currentBank),
         // The card counts every model's freshness, so it needs the whole set, not
         // the first page. It reloads every few seconds — metadata keeps the stored
-        // reflect payloads off the wire.
-        client.listAllMentalModels(currentBank, { detail: "metadata" }),
+        // reflect payloads off the wire. Exclude backing models of knowledge pages.
+        client.listAllMentalModels(currentBank, {
+          detail: "metadata",
+          excludeKnowledgePages: true,
+        }),
       ]);
       setStats(statsData as BankStats);
       setMentalModels(mentalModelsData);

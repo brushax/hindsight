@@ -181,6 +181,7 @@ export function MentalModelsView() {
       const all = await client.listAllMentalModels(currentBank, {
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         tagsMatch: selectedTags.length > 0 ? tagsMatch : undefined,
+        excludeKnowledgePages: true,
         detail: "content",
       });
       setMentalModels(all);

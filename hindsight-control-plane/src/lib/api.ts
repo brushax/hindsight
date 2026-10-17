@@ -1745,6 +1745,7 @@ export class ControlPlaneClient {
     options: {
       tags?: string[];
       tagsMatch?: string;
+      excludeKnowledgePages?: boolean;
       /** Trim the payload: "metadata" drops content and the stored reflect response. */
       detail?: "metadata" | "content" | "full";
       limit?: number;
@@ -1757,6 +1758,9 @@ export class ControlPlaneClient {
     }
     if (options.tagsMatch) {
       params.append("tags_match", options.tagsMatch);
+    }
+    if (options.excludeKnowledgePages !== undefined) {
+      params.append("exclude_knowledge_pages", String(options.excludeKnowledgePages));
     }
     if (options.detail) {
       params.append("detail", options.detail);
@@ -1827,7 +1831,12 @@ export class ControlPlaneClient {
    */
   async listAllMentalModels(
     bankId: string,
-    options: { tags?: string[]; tagsMatch?: string; detail?: "metadata" | "content" | "full" } = {}
+    options: {
+      tags?: string[];
+      tagsMatch?: string;
+      excludeKnowledgePages?: boolean;
+      detail?: "metadata" | "content" | "full";
+    } = {}
   ) {
     const PAGE_SIZE = 1000;
     const items: Awaited<ReturnType<typeof this.listMentalModels>>["items"] = [];

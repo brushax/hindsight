@@ -16846,6 +16846,7 @@ class MemoryEngine(MemoryEngineInterface):
         *,
         tags: list[str] | None = None,
         tags_match: str = "any",
+        exclude_knowledge_pages: bool = False,
         detail: str = "full",
         limit: int | None = 100,
         offset: int = 0,
@@ -16898,11 +16899,15 @@ class MemoryEngine(MemoryEngineInterface):
             tag_filter += f" {scope_clause.sql}"
             filter_params.extend(scope_clause.params)
 
+            mm_table = fq_table("mental_models")
+            if exclude_knowledge_pages:
+                tag_filter += f" AND NOT EXISTS (SELECT 1 FROM {fq_table('knowledge_pages')} kp WHERE kp.bank_id = $1 AND kp.mental_model_id = m.id)"
+
             total = await conn.fetchval(
                 f"""
                 SELECT COUNT(*)
-                FROM {fq_table("mental_models")}
-                WHERE bank_id = $1 {tag_filter}
+                FROM {mm_table} m
+                WHERE m.bank_id = $1 {tag_filter}
                 """,
                 *filter_params,
             )
@@ -16920,14 +16925,16 @@ class MemoryEngine(MemoryEngineInterface):
             # import stamps a whole batch at once), and rows that tie can swap
             # order between two queries, so a paging caller would see one model
             # twice and never see another.
+            kp_table = fq_table("knowledge_pages")
             rows = await conn.fetch(
                 f"""
-                SELECT id, bank_id, name, source_query, content, tags,
-                       last_refreshed_at, last_memory_seen_at, last_refresh_failed_at, last_full_refreshed_at, created_at, reflect_response,
-                       max_tokens, trigger, structured_content
-                FROM {fq_table("mental_models")}
-                WHERE bank_id = $1 {tag_filter}
-                ORDER BY last_refreshed_at DESC, id DESC
+                SELECT m.id, m.bank_id, m.name, m.source_query, m.content, m.tags,
+                       m.last_refreshed_at, m.last_memory_seen_at, m.last_refresh_failed_at, m.last_full_refreshed_at, m.created_at, m.reflect_response,
+                       m.max_tokens, m.trigger, m.structured_content,
+                       (SELECT kp.id FROM {kp_table} kp WHERE kp.bank_id = m.bank_id AND kp.mental_model_id = m.id LIMIT 1) AS knowledge_page_id
+                FROM {fq_table("mental_models")} m
+                WHERE m.bank_id = $1 {tag_filter}
+                ORDER BY m.last_refreshed_at DESC, m.id DESC
                 {pagination}
                 """,
                 *page_params,
@@ -20793,6 +20800,9 @@ class MemoryEngine(MemoryEngineInterface):
             ),
             "created_at": row["created_at"].isoformat() if row["created_at"] else None,
         }
+        if "knowledge_page_id" in row:
+            result["knowledge_page_id"] = row["knowledge_page_id"]
+
         if detail == "metadata":
             return result
 

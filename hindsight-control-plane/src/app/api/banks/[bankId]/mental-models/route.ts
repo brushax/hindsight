@@ -8,6 +8,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ bank
     const { searchParams } = new URL(request.url);
     const tags = searchParams.getAll("tags");
     const tagsMatch = searchParams.get("tags_match");
+    const excludeKnowledgePages = searchParams.get("exclude_knowledge_pages");
     const detail = searchParams.get("detail");
     const limit = searchParams.get("limit");
     const offset = searchParams.get("offset");
@@ -28,6 +29,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ bank
     }
     if (tagsMatch) {
       queryParams.append("tags_match", tagsMatch);
+    }
+    if (excludeKnowledgePages) {
+      queryParams.append("exclude_knowledge_pages", excludeKnowledgePages);
     }
     if (detail) {
       queryParams.append("detail", detail);
